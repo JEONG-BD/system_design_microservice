@@ -1,0 +1,16 @@
+# venv 
+venv/
+.venv/
+
+# PyCharm
+.idea/
+*.iml
+
+# VScode 
+.vscode/
+
+# python byte 
+__pycache__/
+*.py[cod]
+*$py.class 
+
