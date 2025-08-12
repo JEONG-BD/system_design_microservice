@@ -1,7 +1,7 @@
 import jwt, datetime, os 
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
@@ -12,7 +12,7 @@ app = FastAPI(
     version='1.0.0',
 )
 
-security = HTTPBasic()
+load_dotenv()
 
 MYSQL_HOST = os.environ.get("MYSQL_HOST")
 MYSQL_USER = os.environ.get("MYSQL_USER")
@@ -36,8 +36,7 @@ def create_jwt(user_name, secret, authz):
     return jwt.encode(
         {
             'user_name' : user_name,
-            'exp': datetime.datetime.now(tz=datetime.timezone.utc)
-            + datetime.timedelta(days=1),
+            'exp': datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1),
             'iat': datetime.datetime.now(tz=datetime.timezone.utc),
             'admin': authz,
         },
@@ -45,12 +44,8 @@ def create_jwt(user_name, secret, authz):
         algorithm='HS256',
     )
 
-@app.get("/")
-def read_root():
-    return {"hello": "world"}
-
 @app.post('/login', summary='Log in')
-async def login(auth : HTTPBasicCredentials = Depends(security)):
+async def login(auth : HTTPBasicCredentials = Depends(HTTPBasic())):
 
     if not auth.username or not auth.password:
         raise HTTPException(
@@ -59,7 +54,7 @@ async def login(auth : HTTPBasicCredentials = Depends(security)):
             headers={"WWW-Authenticate": "Basic"},
         
 	)
-    query = text("SELECT email, password FROM users WHERE email = :email")
+    query = text("SELECT email, password FROM user WHERE email = :email")
     with engine.connect() as conn:
         result = conn.execute(query, {"email": auth.username})
         user_row = result.fetchone()
@@ -74,6 +69,22 @@ async def login(auth : HTTPBasicCredentials = Depends(security)):
 
         token = create_jwt(auth.username, os.environ.get("JWT_SECRET"), True)
         return {"access_token": token}
+
+
+@app.post('/validate')
+async def validate(auth : HTTPBasicCredentials = Depends(HTTPBearer())):
+    encoded_jwt = auth.credentials  # "Bearer <token>"에서 토큰만 추출됨
+
+    secret = os.environ.get("JWT_SECRET")
+    if not secret:
+        raise HTTPException(status_code=500, detail="JWT secret is not configured")
+    try:
+        decoded = jwt.decode(encoded_jwt, secret, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    return decoded
+
 
 if __name__ == '__main__':
     uvicorn.run('server:app', host='0.0.0.0', port=9998, reload=True)
