@@ -28,7 +28,7 @@ client = MongoClient(f"mongodb://{MONGO_HOST}:{MONGO_PORT}")
 fs_videos = gridfs.GridFS(client.videos)
 fs_mp3s = gridfs.GridFS(client.mp3s)
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, port=int(RABBITMQ_PORT)))
+connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
 channel = connection.channel()
 
 
@@ -53,4 +53,4 @@ def login(request : HTTPBasicCredentials = Depends(HTTPBasic())):
 
 
 if __name__ == '__main__':
-    uvicorn.run('server:app', host='0.0.0.0', port=5001, reload=True)
+    uvicorn.run('server:app', host='0.0.0.0', port=8080, reload=True)
